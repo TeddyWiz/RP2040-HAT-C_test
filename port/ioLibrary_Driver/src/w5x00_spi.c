@@ -37,12 +37,22 @@ static dma_channel_config dma_channel_config_rx;
  */
 static inline void wizchip_select(void)
 {
+    #if 1
     gpio_put(PIN_CS, 0);
+    #else
+    gpio_put(PIN_CS, 0);
+    #endif
+
 }
 
 static inline void wizchip_deselect(void)
 {
+    #if 0
     gpio_put(PIN_CS, 1);
+    #else
+    gpio_put(PIN_CS, 1);
+    //gpio_put(PIN_SCK, 0);
+    #endif
 }
 
 void wizchip_reset()
@@ -57,20 +67,93 @@ void wizchip_reset()
 
     bi_decl(bi_1pin_with_name(PIN_RST, "W5x00 RESET"));
 }
+uint8_t wizchip_gpio_init(void)
+{
+    gpio_init(PIN_SCK);
+    gpio_init(PIN_GPIO_SPI_TEST);
+    gpio_init(PIN_CS);
+    gpio_init(PIN_MOSI);
+    gpio_init(PIN_MISO);
+    gpio_set_dir(PIN_SCK, GPIO_OUT);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_set_dir(PIN_MOSI, GPIO_OUT);
+    gpio_set_dir(PIN_GPIO_SPI_TEST, GPIO_OUT);
+    gpio_set_dir(PIN_MISO, GPIO_IN);
+    gpio_pull_up(PIN_MISO);
+    gpio_put(PIN_CS, 1);
+    gpio_put(PIN_SCK, 0);
+    gpio_put(PIN_GPIO_SPI_TEST, 0);
+    sleep_ms(100);
+}
 
+uint8_t gpio_spi_read(void)
+{
+    int i = 0;
+    uint8_t recv_data = 0, recv_bit = 0;
+    
+    //gpio_put(PIN_GPIO_SPI_TEST, 1);
+    gpio_set_dir(PIN_MOSI, GPIO_IN);
+    gpio_pull_up(PIN_MOSI);
+    sleep_us(10);
+    sleep_us(10);
+    sleep_us(10);
+    gpio_get(PIN_MOSI);
+    for(i=7; i>=0; i--)
+    {
+        gpio_put(PIN_SCK, 0);
+        //gpio_get(PIN_MOSI);
+        sleep_us(6);
+        //recv_data = recv_data | ((gpio_get(PIN_MISO) & 0x01) << i);  
+        recv_bit = gpio_get(PIN_MOSI);
+        //recv_bit = gpio_get(PIN_MOSI);
+        recv_data = recv_data | ((recv_bit & 0x01) << i);  
+        sleep_us(2);
+        //gpio_get(PIN_MOSI);
+        gpio_put(PIN_SCK, 1);
+        sleep_us(8);
+    }
+    gpio_put(PIN_GPIO_SPI_TEST, 0);
+    gpio_put(PIN_SCK, 0);  
+    sleep_us(10);
+    //printf("%02x ", recv_data);
+    return recv_data;
+}
+uint8_t gpio_spi_write(uint8_t send_data)
+{
+    int i = 0;
+    gpio_set_dir(PIN_MOSI, GPIO_OUT);
+    gpio_pull_down(PIN_MOSI);
+    sleep_us(10);
+    for(i= 7; i>=0; i--)
+    {
+        gpio_put(PIN_SCK, 0);
+        gpio_put(PIN_MOSI, (send_data >> i) & 0x01);
+        sleep_us(8);
+        gpio_put(PIN_SCK, 1);
+        sleep_us(8);
+    }
+    gpio_put(PIN_SCK, 0);
+    sleep_us(10);
+    return 0;
+}
 static uint8_t wizchip_read(void)
 {
     uint8_t rx_data = 0;
     uint8_t tx_data = 0xFF;
 
-    spi_read_blocking(SPI_PORT, tx_data, &rx_data, 1);
-
+    //spi_read_blocking(SPI_PORT, tx_data, &rx_data, 1);
+    sleep_us(10);
+    rx_data = gpio_spi_read();
+    sleep_us(10);
+    sleep_us(10);
     return rx_data;
 }
 
 static void wizchip_write(uint8_t tx_data)
 {
-    spi_write_blocking(SPI_PORT, &tx_data, 1);
+    //spi_write_blocking(SPI_PORT, &tx_data, 1);
+    sleep_us(10);
+    gpio_spi_write(tx_data);
 }
 
 #ifdef USE_SPI_DMA
@@ -206,7 +289,7 @@ void wizchip_initialize(void)
 
         return;
     }
-
+    printf(" W5x00 initialized\n");
     /* Check PHY link status */
     do
     {
@@ -230,6 +313,7 @@ void wizchip_check(void)
         while (1)
             ;
     }
+    printf(" VERSION = 0x51, read value = 0x%02x\n", getVER());
 #elif (_WIZCHIP_ == W5500)
     /* Read version register */
     if (getVERSIONR() != 0x04)

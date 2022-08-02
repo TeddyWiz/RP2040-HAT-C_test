@@ -21,6 +21,12 @@
 #define PIN_CS 17
 #define PIN_RST 20
 
+//gpio spi  3pin
+#define PIN_GPIO_SPI_SCK    21
+#define PIN_GPIO_SPI_SD     20
+#define PIN_GPIO_SPI_CS     22
+#define PIN_GPIO_SPI_TEST     15
+
 /* Use SPI DMA */
 //#define USE_SPI_DMA // if you want to use SPI DMA, uncomment.
 
@@ -182,4 +188,6 @@ void network_initialize(wiz_NetInfo net_info);
  */
 void print_network_information(wiz_NetInfo net_info);
 
+uint8_t wizchip_gpio_init(void);
+uint8_t gpio_spi_write(uint8_t send_data);
 #endif /* _W5X00_SPI_H_ */
